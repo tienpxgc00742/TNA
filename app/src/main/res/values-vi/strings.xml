@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TNA Layout</string>
+
+    <string name="hello_world">Chào cc!</string>
+    <string name="action_settings">Cài đặt</string>
+    <string name="action_search">Tìm kiếm</string>
+    <string name="drawer_open">Mở</string>
+    <string name="drawer_close">Đóng</string>
+
+    <string name="nav_item_home">Trang chủ</string>
+    <string name="nav_item_about">Giới thiệu</string>
+
+    <!-- navigation drawer item labels  -->
+
+    <string name="title_about">Giới thiệu</string>
+    <string name="title_home">Trang chủ</string>
+
+    <!-- tab layout item labels  -->
+
+    <string name="tab_home">Trang chủ</string>
+    <string name="tab_videos">Videos</string>
+    <string name="tab_news">Tin tức</string>
+
+    <string name="login">Đăng nhập</string>
+    <string name="warning_no_network">Không có kết nối mạng</string>
+    <string name="refresh">Làm mới</string>
+</resources>
