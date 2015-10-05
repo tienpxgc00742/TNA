@@ -1,11 +1,15 @@
 package com.tnaapp.tnalayout.activity;
 
+import android.app.ActionBar;
 import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.content.res.Resources;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
@@ -19,7 +23,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
-import android.widget.RelativeLayout;
+import android.widget.FrameLayout;
 
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
@@ -33,7 +37,12 @@ import com.facebook.appevents.AppEventsLogger;
 import com.facebook.login.LoginManager;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
+import com.tienpx.videodrag.DraggableListener;
+import com.tienpx.videodrag.DraggableView;
+import com.google.android.libraries.mediaframework.exoplayerextensions.Video;
+import com.google.android.libraries.mediaframework.layeredvideo.PlaybackControlLayer;
 import com.tnaapp.tnalayout.R;
+import com.tnaapp.tnalayout.player.VideoPlayer;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -42,7 +51,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-public class MainActivity extends AppCompatActivity implements FragmentDrawer.FragmentDrawerListener {
+public class MainActivity extends AppCompatActivity implements FragmentDrawer.FragmentDrawerListener, PlaybackControlLayer.FullscreenCallback {
     private static String TAG = MainActivity.class.getSimpleName();
 
     private Toolbar mToolbar;
@@ -52,6 +61,13 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
     public static AccessToken accessToken;
     CallbackManager callbackManager;
     private LoginButton loginButton;
+    //Video
+    private VideoPlayer videoPlayer;
+    private FrameLayout videoPlayerContainer;
+    DraggableView draggableView;
+    FrameLayout bottom_layout;
+    DrawerLayout drawerLayout;
+    //
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,13 +85,21 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
                 Log.d("YourKeyHash :", Base64.encodeToString(md.digest(), Base64.DEFAULT));
             }
         } catch (PackageManager.NameNotFoundException e) {
-            Log.d("","Error");
+            Log.d("", "Error");
         } catch (NoSuchAlgorithmException e) {
-            Log.d("","Error");
+            Log.d("", "Error");
         }
 
         callbackManager = CallbackManager.Factory.create();
         setContentView(R.layout.activity_main);
+        ///////////////////////
+        draggableView = (DraggableView) findViewById(R.id.draggable_view);
+        videoPlayerContainer = (FrameLayout) findViewById(R.id.video_frame);
+        bottom_layout = (FrameLayout) findViewById(R.id.bottom_fl);
+        drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        hookDraggableViewListener();
+        initializeVideoView();
+        ///////////////////////
         loginButton = (LoginButton) findViewById(R.id.login_button);
         loginButton.setReadPermissions(Arrays.asList("public_profile, email, user_birthday"));
 
@@ -122,18 +146,24 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
 
         drawerFragment = (FragmentDrawer)
                 getSupportFragmentManager().findFragmentById(R.id.fragment_navigation_drawer);
-        drawerFragment.setUp(R.id.fragment_navigation_drawer, (DrawerLayout) findViewById(R.id.drawer_layout), mToolbar);
+        drawerFragment.setUp(R.id.fragment_navigation_drawer, drawerLayout, mToolbar);
         drawerFragment.setDrawerListener(this);
         homeFragment = new HomeFragment();
         aboutFragment = new AboutFragment();
         displayView(0);
     }
 
-    public static void reloadCurrentLoggedInSession(){
+    public void homeButton(View v) {
+        createImaPlayer("http://rmcdn.2mdn.net/MotifFiles/html/1248596/android_1330378998288.mp4");
+        draggableView.setVisibility(View.VISIBLE);
+        draggableView.maximize();
+    }
+
+    public static void reloadCurrentLoggedInSession() {
         // If the access token is available already assign it.
         FragmentDrawer.mUserImage.setClickable(true);
         accessToken = AccessToken.getCurrentAccessToken();
-        if(accessToken!=null){
+        if (accessToken != null) {
             FragmentDrawer.mUserName.setText(FragmentDrawer.mUserName.getContext().getResources().getString(R.string.loading));
             GraphRequest request = GraphRequest.newMeRequest(
                     accessToken,
@@ -164,6 +194,7 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         callbackManager.onActivityResult(requestCode, resultCode, data);
     }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -178,6 +209,7 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
         // Logs 'app deactivate' App Event.
         AppEventsLogger.deactivateApp(this);
     }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -200,7 +232,7 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
         if (id == R.id.action_settings) {
             return true;
         }
-        if(id == R.id.action_search){
+        if (id == R.id.action_search) {
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -237,4 +269,86 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
             getSupportActionBar().setTitle(title);
         }
     }
+    //////////////
+
+    /**
+     * Hook DraggableListener to draggableView to pause or resume VideoView.
+     */
+    private void hookDraggableViewListener() {
+        draggableView.setDraggableListener(new DraggableListener() {
+            @Override
+            public void onMaximized() {
+
+                videoPlayer.play();
+            }
+
+            //Empty
+            @Override
+            public void onMinimized() {
+                //Empty
+                videoPlayer.pause();
+                //videoPlayer.hide();
+            }
+
+            @Override
+            public void onClosedToLeft() {
+                videoPlayer.release();
+            }
+
+            @Override
+            public void onClosedToRight() {
+                videoPlayer.release();
+            }
+        });
+    }
+
+    private void initializeVideoView() {
+        draggableView.setVisibility(View.GONE);
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.hide();
+        }
+    }
+
+    public void createImaPlayer(String url) {
+        if (videoPlayer != null) {
+            videoPlayer.release();
+        }
+        videoPlayerContainer.removeAllViews();
+
+        String adTagUrl = null;
+        String videoTitle = "  FUCK";
+
+        videoPlayer = new VideoPlayer(this, videoPlayerContainer,
+                new Video(url, Video.VideoType.MP4),
+                videoTitle,
+                adTagUrl);
+        videoPlayer.setFullscreenCallback(this);
+        //Set color
+        videoPlayer.setSeekBarColor(Color.RED);
+        Resources res = getResources();
+        Drawable logo = res.getDrawable(R.drawable.gmf_icon);
+        videoPlayer.setLogoImage(logo);
+        videoPlayer.play();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (videoPlayer != null) {
+            videoPlayer.release();
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onGoToFullscreen() {
+        videoPlayerContainer.requestFocus();
+        Log.d("", "Hidden");
+    }
+
+    @Override
+    public void onReturnFromFullscreen() {;
+        Log.d("", "Visible");
+    }
+
 }

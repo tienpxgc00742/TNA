@@ -9,4 +9,5 @@
     <color name="materialColor">#06897d</color>
     <color name="selectedLayoutColor">#33000000</color>
     <color name="selectedItemColor">@color/colorPrimary</color>
+    <color name="black">#FF000000</color>
 </resources>
